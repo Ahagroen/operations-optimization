@@ -315,13 +315,20 @@ for k in K:
     )
 
 # (18) V ≥ 1  — enforced by construction of Vset
-
-# (19) Workforce capacity at each maintenance station (HARD CAP)
+time_points = sorted(set(AT[i] for i in NF))  # use all flight arrivals as checkpoints
 for m_ in MT:
-    m.addConstr(
-        quicksum(y[i,m_,k,v] for i in NF_i for k in K for v in Vset) <= MP[m_],
-        name=f"(19)_workforce_cap[{m_}]"
-    )
+    for tau in time_points:
+        m.addConstr(
+            quicksum(
+                y[i,m_,k,v]
+                for i in NF
+                for k in K
+                for v in Vset
+                if AT[i] <= tau < AT[i] + MAT
+            ) <= MP[m_],
+            name=f"(19')_cap[{m_},t={tau}]"
+        )
+# (19) Workforce capacity at each maintenance station (HARD CAP)
 
 # (20)–(22) variable domains already declared as binaries/continuous
 
