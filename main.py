@@ -1,28 +1,30 @@
+from copy import deepcopy
 import gurobipy as gp
+import random
 from gurobipy import GRB, quicksum
 
-NF = ["F1", "F2", "F3", "F4"]           
-K  = ["AC1", "AC2"]           # aircraft
-MT = ["M1", "M2"]           # maintenance stations
-A  = ["A1", "A2", "A3"]           # airports
+NF = []           
+K  = []           # aircraft
+MT = []           # maintenance stations
+A  = []           # airports
+Oi_a = {}    # O_{i a} (origin indicator)
+Di_a = {}    # D_{i a} (destination indicator)
+bij  = lambda x,y: 50 if DT[y] - AT[x] < 90 else 0   # through value between legs i->j
+DT   = {}                   # departure time of flight leg i
+AT   = {}                   # arrival time of flight leg i
+MP   = {}                   # workforce capacity at station m
+ET   = {m: 4*24*60 for m in MT}                   # close time for station m
+Mb   = {}    # 1 if station m located at airport a
 o, t = "o", "t"      # dummy source/sink
 KT   = 2                                    # total number of aircraft used (if needed for V computing)
 TRT  = 45                                    # turn-around time
 Tmax = 40*60                                    # max flying time between successive maint ops
-DT   = {"F1": 0, "F2": 480, "F3": 600, "F4":720}                   # departure time of flight leg i
-AT   = {"F1": 225, "F2": 600, "F3": 710, "F4":825}                   # arrival time of flight leg i
 Vmax = int(round(sum([DT[i] for i in NF]) / (Tmax * KT)))           # int
 Vset = list(range(1, Vmax+1))
 NF_i = NF + [o]      # i-domain where i can be o
 NF_j = NF + [t]      # j-domain where j can be t
-Oi_a = {(i,a): ... for i in NF for a in A}    # O_{i a} (origin indicator)
-Di_a = {(i,a): ... for i in NF for a in A}    # D_{i a} (destination indicator)
 FT   = {i: AT[i]-DT[i] for i in NF}                   # flight duration of leg i (if needed elsewhere)
-bij  = {(i,j): ... for i in NF for j in NF}   # through value between legs i->j
 Cmax = 15                                    # max number of take-offs between successive maint ops
-MP   = {m: ... for m in MT}                   # workforce capacity at station m
-ET   = {m: ... for m in MT}                   # close time for station m
-Mb   = {(m,a): ... for m in MT for a in A}    # 1 if station m located at airport a
 MAT  = 8*60                                    # time required to perform maintenance
 PC   = {(k,m): 500 for k in K for m in MT}    # penalty cost (as in objective)
 Mbig = 10**7                                   # big-M (arbitrarily large per your note)
@@ -30,9 +32,63 @@ Mbig = 10**7                                   # big-M (arbitrarily large per yo
 # Helper: through-value b for arcs involving o/t -> treat as zero unless you define otherwise
 def b_ext(i, j):
     if (i in NF) and (j in NF):
-        return bij[i, j]
+        return bij(i, j)
     else:
         return 0.0
+
+def generate_airfields(num_flights:int,num_airports:int,num_maint:int,capacity:int):
+    if num_maint > num_airports:
+        raise RuntimeError("Cannot have more maintenance stations than airports.")
+    for i in range(num_airports):
+        A.append("A"+str(i))
+    unused_airports = deepcopy(A)
+    travel_time = {}
+    for i in A:
+        for j in A:
+            if i != j:
+                if (j,i) not in travel_time.keys():
+                    travel_time[i,j] = 90+random.random()*180 #Random distances from 90 min to 270 minutes
+    unused_airports = deepcopy(A)
+    for i in range(num_maint):
+        MT.append("M"+str(i))
+        MP["M"+str(i)] = capacity        
+        airport = random.choice(unused_airports)
+        unused_airports.remove(airport)
+        Mb["M"+str(i),airport] = 1
+        for j in A:
+            if j != airport:
+                Mb["M"+str(i),airport] = 0
+    num_ac = KT
+    for i in range(num_ac):
+        K.append("AC"+str(i))
+
+    # Greedy algo, tries to add flights arbitrarily, skipping any flights that are impossible
+    current_pending = []
+    for i in range(num_flights):
+        name = "F"+str(i)
+        NF.append("F"+str(i))
+        if len(NF) < min(num_ac - 2,1): #First flights leave randomly in the first 2 hours
+            source_ap = random.choice(A)
+            dept_time = random.random()*120
+        else:
+            source_ap, base_time = current_pending.pop(random.choice(range(len(current_pending))))
+            dept_time = base_time + 45 + random.random()*90
+        dest_ap = random.choice([x for x in A if x != source_ap])
+        arr_time = dept_time + travel_time[source_ap,dest_ap]
+        DT[name] = dept_time
+        AT[name] = arr_time
+        current_pending.append((dest_ap,arr_time))
+        for j in A:
+            if j == source_ap:
+                Oi_a[name,j] = 1
+            elif j == dest_ap:
+                Di_a[name,j] = 1
+            else:
+                Oi_a[name,j] = 0
+                Di_a[name,j] = 0
+        
+        
+
 
 # =========================
 # Model
