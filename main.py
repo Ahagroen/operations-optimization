@@ -37,6 +37,7 @@ def b_ext(i, j):
         return 0.0
 
 def generate_airfields(num_flights:int,num_airports:int,num_maint:int,capacity:int):
+    random.seed(1)
     if num_maint > num_airports:
         raise RuntimeError("Cannot have more maintenance stations than airports.")
     for i in range(num_airports):
@@ -62,7 +63,6 @@ def generate_airfields(num_flights:int,num_airports:int,num_maint:int,capacity:i
     for i in range(num_ac):
         K.append("AC"+str(i))
 
-    # Greedy algo, tries to add flights arbitrarily, skipping any flights that are impossible
     current_pending = []
     for i in range(num_flights):
         name = "F"+str(i)
@@ -71,7 +71,13 @@ def generate_airfields(num_flights:int,num_airports:int,num_maint:int,capacity:i
             source_ap = random.choice(A)
             dept_time = random.random()*120
         else:
-            source_ap, base_time = current_pending.pop(random.choice(range(len(current_pending))))
+            if random.random() > 0.9: #terminate this leg and start a new one elsewhere
+                _, base_time = current_pending.pop(random.choice(range(len(current_pending))))
+                base_time += 90 #To add additional padding
+                source_ap = random.choice(A)
+            else:
+                source_ap, base_time = current_pending.pop(random.choice(range(len(current_pending))))
+                
             dept_time = base_time + 45 + random.random()*90
         dest_ap = random.choice([x for x in A if x != source_ap])
         arr_time = dept_time + travel_time[source_ap,dest_ap]
@@ -87,7 +93,7 @@ def generate_airfields(num_flights:int,num_airports:int,num_maint:int,capacity:i
                 Oi_a[name,j] = 0
                 Di_a[name,j] = 0
         
-        
+generate_airfields(25,6,4,1)
 
 
 # =========================
