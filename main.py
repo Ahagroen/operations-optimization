@@ -1,43 +1,30 @@
-# -*- coding: utf-8 -*-
 import gurobipy as gp
 from gurobipy import GRB, quicksum
 
-# =========================
-# Sets (provide your data)
-# =========================
-NF = [...]           # flight legs (i, j)
-K  = [...]           # aircraft
-MT = [...]           # maintenance stations
-A  = [...]           # airports
+NF = ["F1", "F2", "F3", "F4"]           
+K  = ["AC1", "AC2"]           # aircraft
+MT = ["M1", "M2"]           # maintenance stations
+A  = ["A1", "A2", "A3"]           # airports
 o, t = "o", "t"      # dummy source/sink
-
-# Number of maintenance operations each aircraft must perform: V = {1,...,Vmax}
-# If you compute it from data: Vmax = sum(DTi for i in NF) / (Tmax * KT)
-Vmax = ...           # int
+KT   = 2                                    # total number of aircraft used (if needed for V computing)
+TRT  = 45                                    # turn-around time
+Tmax = 40*60                                    # max flying time between successive maint ops
+DT   = {"F1": 0, "F2": 480, "F3": 600, "F4":720}                   # departure time of flight leg i
+AT   = {"F1": 225, "F2": 600, "F3": 710, "F4":825}                   # arrival time of flight leg i
+Vmax = int(round(sum([DT[i] for i in NF]) / (Tmax * KT)))           # int
 Vset = list(range(1, Vmax+1))
-
-# For variables that touch o and/or t
 NF_i = NF + [o]      # i-domain where i can be o
 NF_j = NF + [t]      # j-domain where j can be t
-
-# =========================
-# Parameters (provide data)
-# =========================
-DT   = {i: ... for i in NF}                   # departure time of flight leg i
-AT   = {i: ... for i in NF}                   # arrival time of flight leg i
-TRT  = ...                                    # turn-around time
 Oi_a = {(i,a): ... for i in NF for a in A}    # O_{i a} (origin indicator)
 Di_a = {(i,a): ... for i in NF for a in A}    # D_{i a} (destination indicator)
-FT   = {i: ... for i in NF}                   # flight duration of leg i (if needed elsewhere)
+FT   = {i: AT[i]-DT[i] for i in NF}                   # flight duration of leg i (if needed elsewhere)
 bij  = {(i,j): ... for i in NF for j in NF}   # through value between legs i->j
-Tmax = ...                                    # max flying time between successive maint ops
-Cmax = ...                                    # max number of take-offs between successive maint ops
+Cmax = 15                                    # max number of take-offs between successive maint ops
 MP   = {m: ... for m in MT}                   # workforce capacity at station m
 ET   = {m: ... for m in MT}                   # close time for station m
 Mb   = {(m,a): ... for m in MT for a in A}    # 1 if station m located at airport a
-MAT  = ...                                    # time required to perform maintenance
-KT   = ...                                    # total number of aircraft used (if needed for V computing)
-PC   = {(k,m): ... for k in K for m in MT}    # penalty cost (as in objective)
+MAT  = 8*60                                    # time required to perform maintenance
+PC   = {(k,m): 500 for k in K for m in MT}    # penalty cost (as in objective)
 Mbig = 10**7                                   # big-M (arbitrarily large per your note)
 
 # Helper: through-value b for arcs involving o/t -> treat as zero unless you define otherwise
