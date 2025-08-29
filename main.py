@@ -20,7 +20,7 @@ KT   = 5                                    # total number of aircraft used (if 
 TRT  = 45                                    # turn-around time
 Tmax = 40*60                                    # max flying time between successive maint ops
 Cmax = 15                                    # max number of take-offs between successive maint ops
-MAT  = 8*60                                    # time required to perform maintenance
+MAT  = 120                                    # time required to perform maintenance
 Mbig = 10**7                                   # big-M (arbitrarily large per your note)
 
 # Helper: through-value b for arcs involving o/t -> treat as zero unless you define otherwise
@@ -89,7 +89,38 @@ def generate_airfields(num_flights:int,num_airports:int,num_maint:int,capacity:i
             else:
                 Oi_a[name,j] = 0
                 Di_a[name,j] = 0
-        
+def sanity_check():
+    bad = []
+    for i in NF:
+        has_option = False
+        # check flight->flight possibility (location & time)
+        for j in NF:
+            if i==j: 
+                continue
+            # locations must match
+            for a in A:
+                if Di_a[i,a] == 1 and Oi_a[j,a] == 1:
+                    if AT[i] + TRT <= DT[j]:
+                        has_option = True
+                        break
+            if has_option: break
+        if has_option:
+            continue
+        # check flight->maintenance possibility
+        for m in MT:
+            for a in A:
+                if Di_a[i,a] == 1 and Mb[m,a] == 1:
+                    if AT[i] + MAT <= ET[m]:
+                        has_option = True
+                        break
+            if has_option: break
+        if not has_option:
+            bad.append(i)
+    if bad:
+        print("SANITY FAIL — these flights have no feasible outgoing arc (regenerate / adjust params):", bad)
+    else:
+        print("Sanity check passed: every flight has at least one feasible successor (flight or maintenance).")
+
 generate_airfields(15,2,2,25)
 NF_i = NF + [o]      # i-domain where i can be o
 NF_j = NF + [t]      # j-domain where j can be t
@@ -99,7 +130,7 @@ Vmax = max(1, math.ceil(total_DT / (Tmax * KT)))
 Vset = list(range(1, Vmax+1))
 FT   = {i: AT[i]-DT[i] for i in NF}                   # flight duration of leg i (if needed elsewhere)
 PC   = {(k,m): 500 for k in K for m in MT}    # penalty cost (as in objective)
-
+sanity_check()
 
 # =========================
 # Model
@@ -345,8 +376,8 @@ for k in K:
 # =========================
 m.Params.OutputFlag = 1
 m.optimize()
-m.computeIIS()
-m.write("model.ilp")
+# m.computeIIS()
+# m.write("model.ilp")
 # =========================
 # Extract solution (example)
 # =========================
