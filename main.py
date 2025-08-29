@@ -1,4 +1,5 @@
 from copy import deepcopy
+import math
 import gurobipy as gp
 import random
 from gurobipy import GRB, quicksum
@@ -89,11 +90,12 @@ def generate_airfields(num_flights:int,num_airports:int,num_maint:int,capacity:i
                 Oi_a[name,j] = 0
                 Di_a[name,j] = 0
         
-generate_airfields(25,6,4,1)
+generate_airfields(5,2,1,1)
 NF_i = NF + [o]      # i-domain where i can be o
 NF_j = NF + [t]      # j-domain where j can be t
 ET   = {m: 4*24*60 for m in MT}                   # close time for station m
-Vmax = int(round(sum([DT[i] for i in NF]) / (Tmax * KT)))           # int
+total_DT = sum(DT[i] for i in NF)     # total of departure times as in your code
+Vmax = max(1, math.ceil(total_DT / (Tmax * KT)))
 Vset = list(range(1, Vmax+1))
 FT   = {i: AT[i]-DT[i] for i in NF}                   # flight duration of leg i (if needed elsewhere)
 PC   = {(k,m): 500 for k in K for m in MT}    # penalty cost (as in objective)
@@ -269,8 +271,9 @@ for m_ in MT:
 for k in K:
     for v in Vset:
         m.addConstr(
-            RTAM[k,v] == quicksum(ET[m_]*y[i,m_,k,v] for i in NF_i for m_ in MT),
-            name=f"(12)_RTAM[{k},{v}]"
+            RTAM[k,v] == quicksum(((AT[i] + MAT) if i in NF else 0.0) * y[i,m_,k,v]
+                                  for i in NF_i for m_ in MT),
+            name=f"(12)_RTAM_correct[{k},{v}]"
         )
 
 # (13) Time feasibility maintenance->flight: RTAM_{k v} <= DT_j if z_{m j k v} = 1
@@ -346,6 +349,8 @@ for k in K:
 # =========================
 m.Params.OutputFlag = 1
 m.optimize()
+m.computeIIS()
+m.write("model.ilp")
 
 # =========================
 # Extract solution (example)
