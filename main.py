@@ -16,7 +16,7 @@ AT   = {}                   # arrival time of flight leg i
 MP   = {}                   # workforce capacity at station m
 Mb   = {}    # 1 if station m located at airport a
 o, t = "o", "t"      # dummy source/sink
-KT   = 2                                    # total number of aircraft used (if needed for V computing)
+KT   = 5                                    # total number of aircraft used (if needed for V computing)
 TRT  = 45                                    # turn-around time
 Tmax = 40*60                                    # max flying time between successive maint ops
 Cmax = 15                                    # max number of take-offs between successive maint ops
@@ -90,7 +90,7 @@ def generate_airfields(num_flights:int,num_airports:int,num_maint:int,capacity:i
                 Oi_a[name,j] = 0
                 Di_a[name,j] = 0
         
-generate_airfields(5,2,1,1)
+generate_airfields(15,2,2,25)
 NF_i = NF + [o]      # i-domain where i can be o
 NF_j = NF + [t]      # j-domain where j can be t
 ET   = {m: 4*24*60 for m in MT}                   # close time for station m
@@ -197,23 +197,19 @@ for k in K:
 for i in NF:
     for k in K:
         for v in Vset:
-            inflow  = quicksum(x[j,i,k,v] for j in NF if j != i) \
+            inflow  = quicksum(x[j,i,k,v] for j in NF_i if j != i) \
                     + quicksum(z[m_,i,k,v] for m_ in MT)
-            outflow = quicksum(x[i,j,k,v] for j in NF if j != i) \
+            outflow = quicksum(x[i,j,k,v] for j in NF_j if j != i) \
                     + quicksum(y[i,m_,k,v] for m_ in MT)
 
-            # If inflow > 0 then outflow must match (and vice versa).
-            # This is achieved by:
-            m.addConstr(inflow <= outflow, name=f"(5a)_in_le_out[{i},{k},{v}]")
-            m.addConstr(outflow <= inflow, name=f"(5b)_out_le_in[{i},{k},{v}]")
-
+            # enforce equality in one line (clearer)
+            m.addConstr(inflow == outflow, name=f"(5)_flow_bal[{i},{k},{v}]")
     # (6) For each station m and aircraft k, maintenance entries equal exits (across all v)
 for m_ in MT:
     for k in K:
-        lhs = quicksum(y[j,m_,k,v] for j in NF_i for v in Vset)  # include o if allowed to go to m first
-        rhs = quicksum(z[m_,j,k,v] for j in (NF) for v in Vset)        # exits to real flights only
+        lhs = quicksum(y[j,m_,k,v] for j in NF_i for v in Vset)       # entries (including o)
+        rhs = quicksum(z[m_,j,k,v] for j in NF_j for v in Vset)       # exits (include t)
         m.addConstr(lhs == rhs, name=f"(6)_maint_balance[{m_},{k}]")
-
 # (7) Time feasibility on flight->flight arcs: AT_i + TRT <= DT_j if x_{i j k v} = 1
 for i in NF:
     for j in NF:
@@ -351,7 +347,6 @@ m.Params.OutputFlag = 1
 m.optimize()
 m.computeIIS()
 m.write("model.ilp")
-
 # =========================
 # Extract solution (example)
 # =========================
