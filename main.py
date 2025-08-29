@@ -192,13 +192,12 @@ for k in K:
           + quicksum(z[m_,t,k,v] for m_ in MT)            # m -> t
           == 1, name=f"(4)_end[{k},{v}]"
         )
-
 for i in NF:
-    lhs = quicksum(x[j,i,k,v] for j in NF for k in K for v in Vset if i!=j) \
-        + quicksum(z[m_,i,k,v] for m_ in MT for k in K for v in Vset)
-    rhs = quicksum(x[i,j,k,v] for j in NF for k in K for v in Vset if i!=j) \
-        + quicksum(y[i,m_,k,v] for m_ in MT for k in K for v in Vset)
-    m.addConstr(lhs == rhs, name=f"(5)_flow[{i}]")
+    inflow  = quicksum(x[j,i,k,v] for j in NF for k in K for v in Vset if i!=j) \
+            + quicksum(z[m_,i,k,v] for m_ in MT for k in K for v in Vset)
+    outflow = quicksum(x[i,j,k,v] for j in NF for k in K for v in Vset if i!=j) \
+            + quicksum(y[i,m_,k,v] for m_ in MT for k in K for v in Vset)
+    m.addConstr(inflow == outflow, name=f"(5)_flow[{i}]")
 # (6) For each station m and aircraft k, maintenance entries equal exits (across all v)
 for m_ in MT:
     for k in K:
