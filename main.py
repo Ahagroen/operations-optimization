@@ -193,12 +193,19 @@ for k in K:
           == 1, name=f"(4)_end[{k},{v}]"
         )
 for i in NF:
-    inflow  = quicksum(x[j,i,k,v] for j in NF for k in K for v in Vset if i!=j) \
-            + quicksum(z[m_,i,k,v] for m_ in MT for k in K for v in Vset)
-    outflow = quicksum(x[i,j,k,v] for j in NF for k in K for v in Vset if i!=j) \
-            + quicksum(y[i,m_,k,v] for m_ in MT for k in K for v in Vset)
-    m.addConstr(inflow == outflow, name=f"(5)_flow[{i}]")
-# (6) For each station m and aircraft k, maintenance entries equal exits (across all v)
+    for k in K:
+        for v in Vset:
+            inflow  = quicksum(x[j,i,k,v] for j in NF if j != i) \
+                    + quicksum(z[m_,i,k,v] for m_ in MT)
+            outflow = quicksum(x[i,j,k,v] for j in NF if j != i) \
+                    + quicksum(y[i,m_,k,v] for m_ in MT)
+
+            # If inflow > 0 then outflow must match (and vice versa).
+            # This is achieved by:
+            m.addConstr(inflow <= outflow, name=f"(5a)_in_le_out[{i},{k},{v}]")
+            m.addConstr(outflow <= inflow, name=f"(5b)_out_le_in[{i},{k},{v}]")
+
+    # (6) For each station m and aircraft k, maintenance entries equal exits (across all v)
 for m_ in MT:
     for k in K:
         lhs = quicksum(y[j,m_,k,v] for j in NF_i for v in Vset)  # include o if allowed to go to m first
