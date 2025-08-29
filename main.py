@@ -193,15 +193,12 @@ for k in K:
           == 1, name=f"(4)_end[{k},{v}]"
         )
 
-# (5) Flow conservation at each i ∈ NF for each (k,v)
-#    sum_in (from j or from maintenance) = sum_out (to j or to maintenance)
 for i in NF:
-    for k in K:
-        for v in Vset:
-            lhs = quicksum(x[j,i,k,v] for j in NF if i!=j) + quicksum(z[m_,i,k,v] for m_ in MT)
-            rhs = quicksum(x[i,j,k,v] for j in NF if i!=j) + quicksum(y[i,m_,k,v] for m_ in MT)
-            m.addConstr(lhs == rhs, name=f"(5)_flow[{i},{k},{v}]")
-
+    lhs = quicksum(x[j,i,k,v] for j in NF for k in K for v in Vset if i!=j) \
+        + quicksum(z[m_,i,k,v] for m_ in MT for k in K for v in Vset)
+    rhs = quicksum(x[i,j,k,v] for j in NF for k in K for v in Vset if i!=j) \
+        + quicksum(y[i,m_,k,v] for m_ in MT for k in K for v in Vset)
+    m.addConstr(lhs == rhs, name=f"(5)_flow[{i}]")
 # (6) For each station m and aircraft k, maintenance entries equal exits (across all v)
 for m_ in MT:
     for k in K:
